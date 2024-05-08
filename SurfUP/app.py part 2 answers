@@ -1,0 +1,149 @@
+# Import the dependencies.
+import numpy as np
+import sqlalchemy 
+from sqlalchemy.ext.automap import automap_base
+from sqlalchemy.orm import session
+from sqlalchemy import create_engine, func
+from datetime import datetime, timedelta
+from flask import Flask, jsonify
+
+
+#################################################
+# Database Setup
+#################################################
+engine = create_engine("sqlite:///Resources/hawaii.sqlite")
+
+Base = automap_base()
+Base.prepare(engine, reflect = True)
+
+
+# reflect an existing database into a new model
+Base = automap_base()
+# reflect the tables
+Base.prepare(engine, reflect = True)
+
+# Save references to each table
+Measurement = Base.classes.Measurement
+Station = Base.classes.station
+
+
+# Create our session (link) from Python to the DB
+session = session(engine)
+
+#################################################
+# Flask Setup
+#################################################
+
+app = Flask (__name__)
+
+
+
+#################################################
+# Flask Routes
+#################################################
+@app.route("/")
+def welcome():
+    return(
+        f'Available Routes:<br/>'
+        f'/api/v1.0/precipitation:<br/>'
+        f'/api/v1.0/stations:<br/>'
+        f'/api/v1.0/tobs:<br/>'
+        f'/api/v1.0/<start>:<br/>'
+        f'/api/v1.0/<start>/<end>:<br/>' 
+    )
+
+
+
+@app.route("/api/v1.0/precipitation")
+def precipitation():
+    session = session(engine)
+
+    results = session.query(Measurement.date, Measurement.prcp).all()
+
+    session.close()
+
+
+    all_precipitation = []
+    for date,prcp in results:
+        precipitation_dict = {}
+        precipitation_dict[date] = prcp
+        all_precipitation.append(precipitation_dict)
+
+    return jsonify(all_precipitation)
+
+
+
+@app.route('/api/v1.0/stations:<br/>')
+def stations():
+    session = session(engine)
+
+
+    all_stations= session.query(Station.id,Station.station,Station.name,Station.latitude,Station.longitude,Station.elevation).all()
+    session.close()
+    all_station = []
+
+
+    for id, station, name, latitude, longitude, elevation in results:
+        station_dict={}
+        station_dict['Id'] = id
+        station_dict['station'] = station
+        station_dict['name'] = name
+        station_dict['latitude'] = latitude
+        station_dict['longitude'] = longitude
+        station_dict['elevation'] = elevation
+
+    return jsonify(all_stations)
+
+
+@app.route('/api/v1.0/tobs:<br/>')
+def temperatureobs():
+    session = session(engine)
+
+
+    
+    recent_date = session.query(Measurement.date).order_by(Measurement.date.desc()).first()[0]
+
+    start_date = list(np.ravel(recent_date))[0]
+
+    datetime_value = dt.datetime.strptime(recent_date,'%Y-%m-%d')
+
+    twelve_months_ago = datetime_value - timedelta(days=365)
+
+    results = session.query(Measurement.date, Measurement.tobs).order_by(Measurement.date.desc()).filter(Measurement.date >= twelve_months_ago).all() 
+
+    session.close()
+
+
+    all_temp = []
+    for tobs,date in results:
+        tobs_dict={}
+        tobs_dict['Date'] = date
+        tobs_dict['tobs'] = tobs
+        all_temp.append(tobs.dict)
+
+        return jsonify(all_temp)
+    
+
+
+@app.route('api/v1.0/<start>:<end>')
+def temps(start , end):
+
+    session = session(engine)               
+
+    start_date = dt.datetime.strptime(start,'%Y-%m-%d')
+    end_date = dt.datetime.strptime(end,'%Y-%m-%d')
+
+
+    results = session.query(func.min(Measurement.tobs), func.avg(Measurement.tobs), func.max(Measurement.tobs)).filter(Measurement.date >= start).filter(Measurement.date <= end).all()
+
+    session.close()
+    temp_obs = {}
+    temp_obs['Min_Temp'] = results[0][0]
+    temp_obs['Avg_Temp'] = results[0][1]
+    temp_obs['Max_Temp'] = results[0][2]
+
+
+    return jsonify(temp_obs)
+
+if __name__ == '__main__':
+    app.run(debug =True)
